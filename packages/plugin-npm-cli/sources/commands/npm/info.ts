@@ -1,9 +1,9 @@
 import * as npm                                                       from '@npm/types';
-import {BaseCommand}                                                  from '@yarnpkg/cli';
+import {BaseCommand, openWorkspace}                                   from '@yarnpkg/cli';
 import {Project, Configuration, structUtils, Descriptor, formatUtils} from '@yarnpkg/core';
 import {StreamReport, MessageName, semverUtils}                       from '@yarnpkg/core';
 import {Filename, npath, ppath}                                       from '@yarnpkg/fslib';
-import {npmHttpUtils}                                                 from '@yarnpkg/plugin-npm';
+import {npmConfigUtils, npmHttpUtils}                                 from '@yarnpkg/plugin-npm';
 import {Command, Option, Usage, UsageError}                           from 'clipanion';
 import semver                                                         from 'semver';
 import {inspect}                                                      from 'util';
@@ -45,6 +45,8 @@ export default class NpmInfoCommand extends BaseCommand {
       If the \`-f,--fields\` option is set, it's a comma-separated list of fields which will be used to only display part of the package information.
 
       By default, this command won't return the \`dist\`, \`readme\`, and \`users\` fields, since they are often very long. To explicitly request those fields, explicitly list them with the \`--fields\` flag or request the output in JSON mode.
+
+      If the \`--publish\` flag is set, the registry will be resolved using the publish registry settings (\`publishConfig.registry\` or \`npmPublishRegistry\`) rather than the fetch registry settings.
     `,
     examples: [[
       `Show all available information about react (except the \`dist\`, \`readme\`, and \`users\` fields)`,
@@ -81,6 +83,10 @@ export default class NpmInfoCommand extends BaseCommand {
     description: `Format the output as an NDJSON stream`,
   });
 
+  publish = Option.Boolean(`--publish`, false, {
+    description: `Use the publish registry`,
+  });
+
   packages = Option.Rest();
 
   async execute() {
@@ -112,10 +118,17 @@ export default class NpmInfoCommand extends BaseCommand {
           descriptor = structUtils.parseDescriptor(identStr);
         }
 
+        const registry = this.publish
+          ? identStr === `.`
+            ? npmConfigUtils.getPublishRegistry((await openWorkspace(configuration, this.context.cwd)).manifest, {configuration})
+            : npmConfigUtils.getScopeRegistry(descriptor.scope, {configuration, type: npmConfigUtils.RegistryType.PUBLISH_REGISTRY})
+          : undefined;
+
         const identUrl = npmHttpUtils.getIdentUrl(descriptor);
         const result = clean(await npmHttpUtils.get(identUrl, {
           configuration,
           ident: descriptor,
+          registry,
           jsonResponse: true,
           customErrorMessage: npmHttpUtils.customPackageError,
         })) as npm.Packument;

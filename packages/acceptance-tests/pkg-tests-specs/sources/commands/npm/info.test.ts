@@ -1,4 +1,5 @@
-import {tests, yarn} from 'pkg-tests-core';
+import {Filename, ppath, xfs} from '@yarnpkg/fslib';
+import {tests, yarn}          from 'pkg-tests-core';
 
 describe(`Commands`, () => {
   describe(`npm info`, () => {
@@ -43,7 +44,7 @@ describe(`Commands`, () => {
     );
 
     test(
-      `it should use publishConfig.registry rather than the configured fetch registry for workspace packages`,
+      `it should use the configured fetch registry rather than publishConfig.registry for workspace packages by default`,
       makeTemporaryEnv({
         name: `@first/pkg`,
         version: `1.0.0`,
@@ -68,6 +69,43 @@ describe(`Commands`, () => {
 
         const requests = await tests.startRegistryRecording(async () => {
           await expect(run(`npm`, `info`, `.`, `--json`)).rejects.toThrow(/Package not found/);
+        });
+
+        expect(tests.sortJson(requests)).toEqual([{
+          registry: `config`,
+          scope: `@first`,
+          localName: `pkg`,
+          type: `packageInfo`,
+        }]);
+      }),
+    );
+
+    test(
+      `it should use publishConfig.registry rather than the configured fetch registry when --publish is set for workspace packages`,
+      makeTemporaryEnv({
+        name: `@first/pkg`,
+        version: `1.0.0`,
+      }, async ({path, run, source}) => {
+        const registryUrl = await tests.startPackageServer();
+        const manifestPath = ppath.join(path, Filename.manifest);
+        const manifest = await xfs.readJsonPromise(manifestPath);
+
+        manifest.publishConfig = {
+          registry: `${registryUrl}/registry/publish`,
+        };
+
+        await xfs.writeJsonPromise(manifestPath, manifest);
+
+        await yarn.writeConfiguration(path, {
+          npmScopes: {
+            first: {
+              npmRegistryServer: `${registryUrl}/registry/config`,
+            },
+          },
+        });
+
+        const requests = await tests.startRegistryRecording(async () => {
+          await expect(run(`npm`, `info`, `--publish`, `.`, `--json`)).rejects.toThrow(/Package not found/);
         });
 
         expect(tests.sortJson(requests)).toEqual([{
