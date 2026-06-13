@@ -116,5 +116,50 @@ describe(`Commands`, () => {
         }]);
       }),
     );
+
+    test(
+      `it should use the current workspace publishConfig.registry rather than the top-level workspace one when --publish is set for .`,
+      makeTemporaryMonorepoEnv({
+        private: true,
+        workspaces: [`packages/*`],
+        name: `root-workspace`,
+      }, {
+        [`packages/child`]: {
+          name: `@first/pkg`,
+          version: `1.0.0`,
+        },
+      }, async ({path, run, source}) => {
+        const registryUrl = await tests.startPackageServer();
+        const childManifestPath = ppath.join(path, `packages/child` as const, Filename.manifest);
+        const childManifest = await xfs.readJsonPromise(childManifestPath);
+
+        childManifest.publishConfig = {
+          registry: `${registryUrl}/registry/publish`,
+        };
+
+        await xfs.writeJsonPromise(childManifestPath, childManifest);
+
+        await yarn.writeConfiguration(path, {
+          npmScopes: {
+            first: {
+              npmRegistryServer: `${registryUrl}/registry/config`,
+            },
+          },
+        });
+
+        const requests = await tests.startRegistryRecording(async () => {
+          await expect(run(`npm`, `info`, `--publish`, `.`, `--json`, {
+            cwd: ppath.join(path, `packages/child` as const),
+          })).rejects.toThrow(/Package not found/);
+        });
+
+        expect(tests.sortJson(requests)).toEqual([{
+          registry: `publish`,
+          scope: `@first`,
+          localName: `pkg`,
+          type: `packageInfo`,
+        }]);
+      }),
+    );
   });
 });

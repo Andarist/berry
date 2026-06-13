@@ -1,5 +1,5 @@
 import * as npm                                                       from '@npm/types';
-import {BaseCommand, openWorkspace}                                   from '@yarnpkg/cli';
+import {BaseCommand}                                                  from '@yarnpkg/cli';
 import {Project, Configuration, structUtils, Descriptor, formatUtils} from '@yarnpkg/core';
 import {StreamReport, MessageName, semverUtils}                       from '@yarnpkg/core';
 import {Filename, npath, ppath}                                       from '@yarnpkg/fslib';
@@ -91,7 +91,7 @@ export default class NpmInfoCommand extends BaseCommand {
 
   async execute() {
     const configuration = await Configuration.find(this.context.cwd, this.context.plugins);
-    const {project} = await Project.find(configuration, this.context.cwd);
+    const {project, workspace: cwdWorkspace} = await Project.find(configuration, this.context.cwd);
 
     const fields = typeof this.fields !== `undefined`
       ? new Set([`name`, ...this.fields.split(/\s*,\s*/)])
@@ -108,8 +108,11 @@ export default class NpmInfoCommand extends BaseCommand {
     }, async report => {
       for (const identStr of this.packages) {
         let descriptor: Descriptor;
+        let workspace = cwdWorkspace;
         if (identStr === `.`) {
-          const workspace = project.topLevelWorkspace;
+          if (!workspace)
+            throw new UsageError(`This command can only use ${formatUtils.pretty(configuration, `.`, formatUtils.Type.CODE)} inside a workspace`);
+
           if (!workspace.manifest.name)
             throw new UsageError(`Missing ${formatUtils.pretty(configuration, `name`, formatUtils.Type.CODE)} field in ${npath.fromPortablePath(ppath.join(workspace.cwd, Filename.manifest))}`);
 
@@ -120,7 +123,7 @@ export default class NpmInfoCommand extends BaseCommand {
 
         const registry = this.publish
           ? identStr === `.`
-            ? npmConfigUtils.getPublishRegistry((await openWorkspace(configuration, this.context.cwd)).manifest, {configuration})
+            ? npmConfigUtils.getPublishRegistry(workspace.manifest, {configuration})
             : npmConfigUtils.getScopeRegistry(descriptor.scope, {configuration, type: npmConfigUtils.RegistryType.PUBLISH_REGISTRY})
           : undefined;
 
