@@ -46,7 +46,7 @@ export default class NpmInfoCommand extends BaseCommand {
 
       By default, this command won't return the \`dist\`, \`readme\`, and \`users\` fields, since they are often very long. To explicitly request those fields, explicitly list them with the \`--fields\` flag or request the output in JSON mode.
 
-      If the \`--publish\` flag is set, the registry will be resolved using the publish registry settings (\`publishConfig.registry\` or \`npmPublishRegistry\`) rather than the fetch registry settings.
+      If the \`--publish\` flag is set, the registry will be resolved using the publish registry settings (\`publishConfig.registry\` or \`npmPublishRegistry\`) rather than the fetch registry settings. When passing an explicit package name, the package must resolve to a local workspace.
     `,
     examples: [[
       `Show all available information about react (except the \`dist\`, \`readme\`, and \`users\` fields)`,
@@ -122,6 +122,13 @@ export default class NpmInfoCommand extends BaseCommand {
           descriptor = structUtils.makeDescriptor(workspace.manifest.name, `unknown`);
         } else {
           descriptor = structUtils.parseDescriptor(identStr);
+        }
+
+        if (this.publish && identStr !== `.`) {
+          workspace = project.tryWorkspaceByIdent(descriptor);
+
+          if (!workspace)
+            throw new UsageError(`The ${formatUtils.pretty(configuration, `--publish`, formatUtils.Type.CODE)} flag can only be used with local workspace packages`);
         }
 
         const registry = getRegistry({

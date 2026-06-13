@@ -161,5 +161,55 @@ describe(`Commands`, () => {
         }]);
       }),
     );
+
+    test(
+      `it should use the targeted workspace publishConfig.registry when --publish is set for an explicit workspace package`,
+      makeTemporaryMonorepoEnv({
+        private: true,
+        workspaces: [`packages/*`],
+        name: `root-workspace`,
+      }, {
+        [`packages/child`]: {
+          name: `@first/pkg`,
+          version: `1.0.0`,
+        },
+      }, async ({path, run, source}) => {
+        const registryUrl = await tests.startPackageServer();
+        const childManifestPath = ppath.join(path, `packages/child` as const, Filename.manifest);
+        const childManifest = await xfs.readJsonPromise(childManifestPath);
+
+        childManifest.publishConfig = {
+          registry: `${registryUrl}/registry/publish`,
+        };
+
+        await xfs.writeJsonPromise(childManifestPath, childManifest);
+
+        await yarn.writeConfiguration(path, {
+          npmScopes: {
+            first: {
+              npmRegistryServer: `${registryUrl}/registry/config`,
+            },
+          },
+        });
+
+        const requests = await tests.startRegistryRecording(async () => {
+          await expect(run(`npm`, `info`, `--publish`, `@first/pkg`, `--json`)).rejects.toThrow(/Package not found/);
+        });
+
+        expect(tests.sortJson(requests)).toEqual([{
+          registry: `publish`,
+          scope: `@first`,
+          localName: `pkg`,
+          type: `packageInfo`,
+        }]);
+      }),
+    );
+
+    test(
+      `it should throw when --publish is set for a package that is not a local workspace`,
+      makeTemporaryEnv({}, async ({path, run, source}) => {
+        await expect(run(`npm`, `info`, `--publish`, `no-deps`, `--json`)).rejects.toThrow(/can only be used with local workspace packages/);
+      }),
+    );
   });
 });
