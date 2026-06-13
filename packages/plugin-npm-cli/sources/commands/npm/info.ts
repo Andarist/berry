@@ -72,6 +72,9 @@ export default class NpmInfoCommand extends BaseCommand {
     ], [
       `Show a few fields of react`,
       `yarn npm info react --fields homepage,repository`,
+    ], [
+      `Show workspace package information using its publish registry`,
+      `yarn npm info --publish .`,
     ]],
   });
 
@@ -121,11 +124,12 @@ export default class NpmInfoCommand extends BaseCommand {
           descriptor = structUtils.parseDescriptor(identStr);
         }
 
-        const registry = this.publish
-          ? identStr === `.`
-            ? npmConfigUtils.getPublishRegistry(workspace.manifest, {configuration})
-            : npmConfigUtils.getScopeRegistry(descriptor.scope, {configuration, type: npmConfigUtils.RegistryType.PUBLISH_REGISTRY})
-          : undefined;
+        const registry = getRegistry({
+          configuration,
+          descriptor,
+          publish: this.publish,
+          workspace,
+        });
 
         const identUrl = npmHttpUtils.getIdentUrl(descriptor);
         const result = clean(await npmHttpUtils.get(identUrl, {
@@ -262,4 +266,14 @@ function clean(value: unknown): unknown {
   } else {
     return null;
   }
+}
+
+function getRegistry({configuration, descriptor, publish, workspace}: {configuration: Configuration, descriptor: Descriptor, publish: boolean, workspace: Project[`workspace`]}) {
+  if (!publish)
+    return undefined;
+
+  if (workspace)
+    return npmConfigUtils.getPublishRegistry(workspace.manifest, {configuration});
+
+  return npmConfigUtils.getScopeRegistry(descriptor.scope, {configuration, type: npmConfigUtils.RegistryType.PUBLISH_REGISTRY});
 }
