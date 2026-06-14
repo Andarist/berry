@@ -1,12 +1,12 @@
-import * as npm                                                       from '@npm/types';
-import {BaseCommand}                                                  from '@yarnpkg/cli';
+import * as npm                                                                  from '@npm/types';
+import {BaseCommand}                                                             from '@yarnpkg/cli';
 import {Project, Configuration, Workspace, structUtils, Descriptor, formatUtils} from '@yarnpkg/core';
-import {StreamReport, MessageName, semverUtils}                       from '@yarnpkg/core';
-import {Filename, npath, ppath}                                       from '@yarnpkg/fslib';
-import {npmConfigUtils, npmHttpUtils}                                 from '@yarnpkg/plugin-npm';
-import {Command, Option, Usage, UsageError}                           from 'clipanion';
-import semver                                                         from 'semver';
-import {inspect}                                                      from 'util';
+import {StreamReport, MessageName, semverUtils}                                  from '@yarnpkg/core';
+import {Filename, npath, ppath}                                                  from '@yarnpkg/fslib';
+import {npmConfigUtils, npmHttpUtils}                                            from '@yarnpkg/plugin-npm';
+import {Command, Option, Usage, UsageError}                                      from 'clipanion';
+import semver                                                                    from 'semver';
+import {inspect}                                                                 from 'util';
 
 declare module '@npm/types' {
   interface Packument {
@@ -127,8 +127,9 @@ export default class NpmInfoCommand extends BaseCommand {
         if (this.publish && identStr !== `.`) {
           workspace = project.tryWorkspaceByIdent(descriptor);
 
-          if (!workspace)
+          if (!workspace) {
             throw new UsageError(`The ${formatUtils.pretty(configuration, `--publish`, formatUtils.Type.CODE)} flag can only be used with local workspace packages`);
+          }
         }
 
         const registry = getRegistry({
