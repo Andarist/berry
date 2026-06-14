@@ -1,6 +1,6 @@
 import * as npm                                                       from '@npm/types';
 import {BaseCommand}                                                  from '@yarnpkg/cli';
-import {Project, Configuration, structUtils, Descriptor, formatUtils} from '@yarnpkg/core';
+import {Project, Configuration, Workspace, structUtils, Descriptor, formatUtils} from '@yarnpkg/core';
 import {StreamReport, MessageName, semverUtils}                       from '@yarnpkg/core';
 import {Filename, npath, ppath}                                       from '@yarnpkg/fslib';
 import {npmConfigUtils, npmHttpUtils}                                 from '@yarnpkg/plugin-npm';
@@ -275,7 +275,7 @@ function clean(value: unknown): unknown {
   }
 }
 
-function getRegistry({configuration, descriptor, publish, workspace}: {configuration: Configuration, descriptor: Descriptor, publish: boolean, workspace: Project[`workspace`]}) {
+function getRegistry({configuration, descriptor, publish, workspace}: {configuration: Configuration, descriptor: Descriptor, publish: boolean, workspace: Workspace | null}) {
   if (!publish)
     return undefined;
 
